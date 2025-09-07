@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>اکولایزر کوانتومی</title>
+    <title>کهکشان صوتی</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
+        :root {
+            --seek-before-width: 0%;
+            --volume-before-width: 100%;
+        }
         body, html {
             margin: 0;
             overflow: hidden;
@@ -44,11 +48,11 @@
         .search-input-wrapper { display: flex; flex: 1; align-items: center; padding: 0 14px; overflow: hidden; }
         #search-input { display: none; }
         #search-input-display {
-            flex: 1;
+            flex-grow: 1;
             white-space: nowrap;
             overflow: hidden;
             font-size: 16px;
-            direction: ltr; /* This is key for the overflow behavior */
+            direction: ltr;
             text-align: right;
         }
         #search-input-cursor {
@@ -59,12 +63,10 @@
         @keyframes blink { from, to { opacity: 1; } 50% { opacity: 0; } }
         .search-icon-wrapper { display: flex; align-items: center; padding-left: 12px; cursor: pointer; }
         .search-icon { fill: #4285f4; height: 24px; width: 24px; transition: all 0.3s ease; }
-        .search-icon.blinking {
-            animation: attention-pulse 1.5s infinite;
-        }
+        .search-icon.blinking { animation: attention-pulse 1.5s infinite; }
         @keyframes attention-pulse {
             0% { transform: scale(1); filter: drop-shadow(0 0 0px #4285f4); }
-            50% { transform: scale(1.15); filter: drop-shadow(0 0 5px #6ea8ff); }
+            50% { transform: scale(1.2); filter: drop-shadow(0 0 8px #8ab4f8); }
             100% { transform: scale(1); filter: drop-shadow(0 0 0px #4285f4); }
         }
         .google-buttons { margin-top: 18px; text-align: center; }
@@ -74,39 +76,114 @@
         /* --- Stages 2 & 3 --- */
         #video-intro-container { z-index: 90; }
         #intro-video { width: 100%; height: 100%; object-fit: cover; }
-        #main-experience { z-index: 80; display: block; }
+        #main-experience { z-index: 80; }
         #starfield { position: fixed; top: 0; left: 0; z-index: 1; }
-        #joystick-container {
-            position: fixed; bottom: 40px; left: 50%;
+        
+        /* New Audio Player */
+        #audio-player-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
             transform: translateX(-50%);
-            width: 180px; height: 180px; z-index: 50;
-            display: flex; justify-content: center; align-items: center;
+            width: 90%;
+            max-width: 500px;
+            background: rgba(25, 25, 25, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 1s ease-in-out 1s;
         }
-        #joystick-base {
-            width: 100%; height: 100%; background: rgba(20, 20, 20, 0.6);
-            border-radius: 50%; border: 2px solid rgba(100, 100, 100, 0.7);
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0,0,0,0.8);
-            position: relative; display: flex; justify-content: center; align-items: center;
+        #main-experience.active #audio-player-container { opacity: 1; }
+        .player-top-row { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        #equalizer-canvas {
+            flex-grow: 1;
+            height: 50px;
         }
-        #joystick-stick {
-            width: 70px; height: 70px; background: radial-gradient(circle at 30% 30%, #999, #333);
-            border-radius: 50%; cursor: grab; border: 2px solid #555;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7);
-            transition: transform 0.1s linear, box-shadow 0.2s ease-out;
-            display: flex; justify-content: center; align-items: center;
+        .volume-container { position: relative; display: flex; align-items: center; }
+        #volume-btn { background: none; border: none; cursor: pointer; padding: 5px; }
+        #volume-btn svg { width: 22px; height: 22px; fill: #e8eaed; }
+        #volume-slider {
+            position: absolute;
+            bottom: 150%;
+            left: 50%;
+            transform: translateX(-50%);
+            -webkit-appearance: none;
+            appearance: none;
+            width: 8px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            outline: none;
+            transition: opacity 0.3s ease, visibility 0.3s;
+            opacity: 0;
+            visibility: hidden;
+            padding: 0;
+            margin: 0;
         }
-        #joystick-stick.snap-back { transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.3s ease-out; }
-        #joystick-stick:active { cursor: grabbing; }
-        #joystick-stick.glowing { box-shadow: 0 0 8px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.6), 0 5px 15px rgba(0, 0, 0, 0.7); }
-        #play-pause-icon { width: 30px; height: 30px; fill: rgba(255, 255, 255, 0.8); pointer-events: none; }
-        .direction-icon { position: absolute; width: 28px; height: 28px; fill: rgba(200, 220, 255, 0.4); transition: all 0.2s ease-in-out; }
-        .icon-up { top: 15px; left: 50%; transform: translateX(-50%); }
-        .icon-down { bottom: 15px; left: 50%; transform: translateX(-50%); }
-        .icon-left { left: 15px; top: 50%; transform: translateY(-50%); }
-        .icon-right { right: 15px; top: 50%; transform: translateY(-50%); }
-        .icon-active { fill: rgba(200, 220, 255, 1); filter: drop-shadow(0 0 6px #0ff) drop-shadow(0 0 12px #0ff); transform: scale(1.15) translateX(var(--tx, -50%)) translateY(var(--ty, 0)); }
-        .icon-left.icon-active, .icon-right.icon-active { --tx: 0; --ty:-50%; }
-        .icon-up.icon-active, .icon-down.icon-active { --tx: -50%; --ty:0; }
+        .volume-container:hover #volume-slider { opacity: 1; visibility: visible; }
+        #volume-slider::-webkit-slider-runnable-track {
+            background: transparent;
+        }
+        #volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e8eaed;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .player-bottom-row { display: flex; align-items: center; gap: 15px; color: #e8eaed; font-size: 14px; font-family: monospace; }
+        #play-pause-btn {
+            background: transparent; border: none; cursor: pointer; padding: 0;
+            width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+        }
+        #play-pause-btn svg { width: 28px; height: 28px; fill: #e8eaed; transition: transform 0.2s ease; }
+        #play-pause-btn:hover svg { transform: scale(1.1); }
+        #seek-bar {
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--track-color, rgba(255, 255, 255, 0.2));
+            height: 4px;
+            border-radius: 2px;
+            cursor: pointer;
+            flex-grow: 1;
+            background-image: linear-gradient(var(--seek-before-color, #6ea8ff), var(--seek-before-color, #6ea8ff));
+            background-repeat: no-repeat;
+            background-size: var(--seek-before-width, 0%) 100%;
+        }
+        #seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--thumb-color, #e8eaed);
+            border: 2px solid #191919;
+            margin-top: -6px;
+        }
+        #seek-bar::-moz-range-track {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--track-color, rgba(255, 255, 255, 0.2));
+        }
+        #seek-bar::-moz-range-progress {
+            background-color: var(--seek-before-color, #6ea8ff);
+            height: 4px;
+            border-radius: 2px;
+        }
+        #seek-bar::-moz-range-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            border: 2px solid #191919;
+            background: var(--thumb-color, #e8eaed);
+        }
     </style>
 </head>
 <body>
@@ -138,15 +215,24 @@
     <div id="main-experience" class="stage">
         <audio id="audio-player" src="https://raw.githubusercontent.com/Shervinuri/Telbot/89a6ba05e0e67d37b917d488749324d909480d23/POD.mp3" loop crossorigin="anonymous"></audio>
         <canvas id="starfield"></canvas>
-        <div id="joystick-container">
-            <div id="joystick-base">
-                <svg class="direction-icon icon-up" viewBox="0 0 24 24"><path d="M12 8l-6 6h12z"></path></svg>
-                <svg class="direction-icon icon-down" viewBox="0 0 24 24"><path d="M12 16l6-6H6z"></path></svg>
-                <svg class="direction-icon icon-left" viewBox="0 0 24 24"><path d="M14 7l-5 5 5 5V7z"></path></svg>
-                <svg class="direction-icon icon-right" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5v10z"></path></svg>
-                <div id="joystick-stick">
-                    <svg id="play-pause-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <div id="audio-player-container">
+            <div class="player-top-row">
+                <canvas id="equalizer-canvas"></canvas>
+                <div class="volume-container">
+                    <button id="volume-btn">
+                        <svg id="volume-icon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>
+                    </button>
+                    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" orient="vertical">
                 </div>
+            </div>
+            <div class="player-bottom-row" dir="ltr">
+                <span id="current-time">0:00</span>
+                <input type="range" id="seek-bar" value="0" step="1">
+                <span id="duration">0:00</span>
+                 <button id="play-pause-btn">
+                    <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pause-icon" viewBox="0 0 24 24" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
             </div>
         </div>
     </div>
@@ -188,7 +274,7 @@
              setTimeout(() => {
                 typingInterval = setInterval(typeChar, 100);
                 searchInput.focus();
-            }, 500); // Slight delay to ensure layout is stable
+            }, 100);
         }
 
         searchInput.addEventListener('keydown', (e) => {
@@ -216,54 +302,71 @@
 
         videoPlayer.addEventListener('ended', () => setActiveStage('main'));
 
-        // --- Stage 3: Main Experience (Three.js & Joystick) ---
-        const stick = document.getElementById('joystick-stick');
-        const base = document.getElementById('joystick-base');
-        const iconPath = document.querySelector('#play-pause-icon path');
-        const playIconPath = "M8 5v14l11-7z";
-        const pauseIconPath = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
-        audioPlayer.onplay = () => iconPath.setAttribute('d', pauseIconPath);
-        audioPlayer.onpause = () => iconPath.setAttribute('d', pauseIconPath);
-        
-        let scene, camera, renderer, stars, dust, analyser, frequencyData, visualizer;
+        // --- Stage 3: Audio Player & 3D Scene ---
+        const eqCanvas = document.getElementById('equalizer-canvas');
+        const eqCtx = eqCanvas.getContext('2d');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const seekBar = document.getElementById('seek-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationEl = document.getElementById('duration');
+        const volumeSlider = document.getElementById('volume-slider');
 
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        
+        playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
+        audioPlayer.onplay = () => { playIcon.style.display = 'none'; pauseIcon.style.display = 'block'; };
+        audioPlayer.onpause = () => { playIcon.style.display = 'block'; pauseIcon.style.display = 'none'; };
+
+        const setSeekbarProgress = (value) => {
+            seekBar.style.setProperty('--seek-before-width', `${(value / seekBar.max) * 100}%`);
+        }
+
+        audioPlayer.onloadedmetadata = () => {
+            seekBar.max = audioPlayer.duration;
+            durationEl.textContent = formatTime(audioPlayer.duration);
+        };
+        audioPlayer.ontimeupdate = () => {
+            seekBar.value = audioPlayer.currentTime;
+            currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
+            setSeekbarProgress(seekBar.value);
+        };
+        seekBar.oninput = () => {
+            setSeekbarProgress(seekBar.value);
+            audioPlayer.currentTime = seekBar.value;
+        };
+        volumeSlider.oninput = (e) => audioPlayer.volume = e.target.value;
+
+        // --- Three.js Scene ---
+        let scene, camera, renderer, stars;
         function init3D() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 50;
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('starfield'), antialias: true });
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('starfield'), antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
 
             const starGeo = new THREE.BufferGeometry();
             const starVertices = [];
-            for (let i = 0; i < 10000; i++) starVertices.push((Math.random() - 0.5) * 1500, (Math.random() - 0.5) * 1500, (Math.random() - 0.5) * 1500);
+            for (let i = 0; i < 15000; i++) starVertices.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
             starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
             stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.7 }));
             scene.add(stars);
             
-            const dustGeo = new THREE.BufferGeometry();
-            const dustVertices = [];
-            for (let i = 0; i < 5000; i++) dustVertices.push((Math.random() - 0.5) * 1000, (Math.random() - 0.5) * 1000, (Math.random() - 0.5) * 1000);
-            dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dustVertices, 3));
-            dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0x555555, size: 0.3 }));
-            scene.add(dust);
-
-            const geometry = new THREE.IcosahedronGeometry(10, 1);
-            const material = new THREE.MeshBasicMaterial({ color: 0xff8800, wireframe: true, transparent: true });
-            visualizer = new THREE.Mesh(geometry, material);
-            scene.add(visualizer);
-
             window.addEventListener('resize', onWindowResize);
             animate();
         }
 
-        let audioContext;
+        let audioContext, analyser, frequencyData;
         async function setupAudioAnalysis() {
             if (audioContext) return;
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
+            if (audioContext.state === 'suspended') await audioContext.resume();
             const source = audioContext.createMediaElementSource(audioPlayer);
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;
@@ -274,28 +377,35 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            stars.rotation.y += 0.0001;
-            dust.rotation.y += 0.0002;
+            stars.rotation.y += 0.00015;
             camera.position.z -= 0.03;
             if(camera.position.z < -200) camera.position.z = 200;
 
             if (analyser && !audioPlayer.paused) {
                 analyser.getByteFrequencyData(frequencyData);
-                const lowFreq = frequencyData.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
-                const midFreq = frequencyData.slice(10, 30).reduce((a, b) => a + b, 0) / 20;
-                
-                const scale = 1 + (lowFreq / 255) * 0.5;
-                visualizer.scale.set(scale, scale, scale);
-                visualizer.rotation.x += 0.001;
-                visualizer.rotation.y += 0.002;
-
-                const hue = 0.01 + (midFreq / 255) * 0.15;
-                visualizer.material.color.setHSL(hue, 1, 0.6);
-                visualizer.material.opacity = 0.5 + (lowFreq/255) * 0.5;
-            } else if (visualizer) {
-                 visualizer.material.opacity = Math.max(0, visualizer.material.opacity - 0.01);
+                drawEqualizer();
+            } else {
+                 eqCtx.clearRect(0, 0, eqCanvas.width, eqCanvas.height);
             }
             renderer.render(scene, camera);
+        }
+        
+        function drawEqualizer() {
+            eqCtx.clearRect(0, 0, eqCanvas.width, eqCanvas.height);
+            const barCount = 64;
+            const barWidth = (eqCanvas.width / barCount);
+            let x = 0;
+            const gradient = eqCtx.createLinearGradient(0, 0, eqCanvas.width, 0);
+            gradient.addColorStop(0, '#8ab4f8');
+            gradient.addColorStop(0.5, '#6ea8ff');
+            gradient.addColorStop(1, '#d1e3ff');
+
+            for (let i = 0; i < barCount; i++) {
+                const barHeight = (frequencyData[i * 2] / 255) * eqCanvas.height;
+                eqCtx.fillStyle = gradient;
+                eqCtx.fillRect(x, (eqCanvas.height - barHeight) / 2, barWidth, barHeight);
+                x += barWidth;
+            }
         }
 
         function onWindowResize() {
@@ -303,81 +413,6 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
-        let isDragging = false, isHoldActionActive = false, holdInterval = null, dragStartTime = 0;
-        const maxRadius = base.offsetWidth / 2 - stick.offsetWidth / 2;
-        const directionalIcons = {
-            up: document.querySelector('.icon-up'),
-            down: document.querySelector('.icon-down'),
-            left: document.querySelector('.icon-left'),
-            right: document.querySelector('.icon-right')
-        };
-        function resetEffects() {
-            stick.classList.remove('glowing');
-            Object.values(directionalIcons).forEach(icon => icon.classList.remove('icon-active'));
-        }
-        function handleInteractionStart(e) {
-            stick.classList.remove('snap-back'); isDragging = true; dragStartTime = Date.now(); isHoldActionActive = false;
-            if (audioPlayer.paused) audioPlayer.play();
-        }
-        function handleInteractionMove(e) {
-            if (!isDragging) return; e.preventDefault();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const baseRect = base.getBoundingClientRect();
-            const centerX = baseRect.left + baseRect.width / 2;
-            const centerY = baseRect.top + baseRect.height / 2;
-            let dx = clientX - centerX, dy = clientY - centerY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance > maxRadius) { dx = (dx / distance) * maxRadius; dy = (dy / distance) * maxRadius; }
-            stick.style.transform = `translate(${dx}px, ${dy}px)`;
-            resetEffects();
-            const angle = Math.atan2(dy, dx);
-            if (distance / maxRadius > 0.4) {
-                 stick.classList.add('glowing');
-                 if (Math.abs(angle) < Math.PI / 4) directionalIcons.right.classList.add('icon-active');
-                 else if (Math.abs(angle) > 3 * Math.PI / 4) directionalIcons.left.classList.add('icon-active');
-                 else if (angle < -Math.PI / 4) directionalIcons.up.classList.add('icon-active');
-                 else if (angle > Math.PI / 4) directionalIcons.down.classList.add('icon-active');
-            }
-            if (distance / maxRadius > 0.7) {
-                if (!holdInterval) {
-                     holdInterval = setInterval(() => {
-                        isHoldActionActive = true;
-                        if (Math.abs(angle) < Math.PI / 4) audioPlayer.currentTime += 0.5;
-                        else if (Math.abs(angle) > 3 * Math.PI / 4) audioPlayer.currentTime -= 0.5;
-                        else if (angle < -Math.PI / 4) audioPlayer.volume = Math.min(1, audioPlayer.volume + 0.05);
-                        else if (angle > Math.PI / 4) audioPlayer.volume = Math.max(0, audioPlayer.volume - 0.05);
-                    }, 100);
-                }
-            } else { clearInterval(holdInterval); holdInterval = null; }
-        }
-        function handleInteractionEnd(e) {
-            if (!isDragging) return;
-            isDragging = false; stick.classList.add('snap-back'); stick.style.transform = `translate(0px, 0px)`;
-            clearInterval(holdInterval); holdInterval = null; resetEffects();
-            const dragDuration = Date.now() - dragStartTime;
-            const endClientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-            const endClientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-            const baseRect = base.getBoundingClientRect();
-            const centerX = baseRect.left + baseRect.width / 2;
-            const centerY = baseRect.top + baseRect.height / 2;
-            const distance = Math.sqrt(Math.pow(endClientX - centerX, 2) + Math.pow(endClientY - centerY, 2));
-            if (!isHoldActionActive) {
-                if (dragDuration < 200 && distance < 20) { if (audioPlayer.paused) audioPlayer.play(); else audioPlayer.pause(); } 
-                else if (distance > 20) { 
-                    const angle = Math.atan2(endClientY - centerY, endClientX - centerX);
-                    if (Math.abs(angle) < Math.PI / 4) audioPlayer.currentTime = audioPlayer.duration - 0.1;
-                    else if (Math.abs(angle) > 3 * Math.PI / 4) audioPlayer.currentTime = 0;
-                }
-            }
-        }
-        stick.addEventListener('mousedown', handleInteractionStart);
-        window.addEventListener('mousemove', handleInteractionMove);
-        window.addEventListener('mouseup', handleInteractionEnd);
-        stick.addEventListener('touchstart', handleInteractionStart, { passive: false });
-        window.addEventListener('touchmove', handleInteractionMove, { passive: false });
-        window.addEventListener('touchend', handleInteractionEnd);
 
         window.onload = () => {
             init3D();
