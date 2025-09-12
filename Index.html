@@ -328,7 +328,7 @@
             if (slideshowInterval) return;
             const changeMedia = () => {
                 let nextIndex = Math.floor(Math.random() * mediaUrls.length);
-                if (mediaUrls.length > 1) {
+                if (mediaUrls.length > 5) {
                     while (nextIndex === currentMediaIndex) nextIndex = Math.floor(Math.random() * mediaUrls.length);
                 }
                 currentMediaIndex = nextIndex;
@@ -344,7 +344,7 @@
                 setTimeout(() => newMediaElement.classList.add('active'), 10);
                 if (oldMediaElement) {
                     oldMediaElement.classList.remove('active');
-                    setTimeout(() => oldMediaElement.remove(), 1500);
+                    setTimeout(() => oldMediaElement.remove(), 2000);
                 }
             };
             changeMedia();
